@@ -1,17 +1,204 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import styles from "./record.module.css";
+
+const storageKey = "vaani-executive-context";
+const momentStorageKey = "vaani-selected-executive-moment";
+
+const momentGuidance = {
+  "promotion-appraisal": {
+    title: "Promotion / Appraisal Pitch",
+    reminders: ["Lead with impact.", "Quantify achievements.", "End with your ask."],
+  },
+  "stakeholder-update": {
+    title: "Leadership Stakeholder Update",
+    reminders: [
+      "Start with the outcome.",
+      "State decisions clearly.",
+      "Mention risks briefly.",
+    ],
+  },
+  "client-pitch": {
+    title: "Client Pitch",
+    reminders: [
+      "Build trust first.",
+      "Talk business outcomes.",
+      "Finish with one clear CTA.",
+    ],
+  },
+  "difficult-conversation": {
+    title: "Difficult Conversation",
+    reminders: [
+      "Lead with the issue directly.",
+      "Balance clarity with empathy.",
+      "End with an agreed next step.",
+    ],
+  },
+};
+
+const conversationToMoment = {
+  "Promotion Discussion": "promotion-appraisal",
+  "Leadership Update": "stakeholder-update",
+  "Client Meeting": "client-pitch",
+  "Performance Review": "promotion-appraisal",
+};
+
+const emptyContext = {
+  conversationType: "",
+  audience: "",
+  desiredOutcome: "",
+};
+
+function normalizeContext(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return emptyContext;
+  }
+
+  return {
+    conversationType:
+      typeof value.conversationType === "string" ? value.conversationType : "",
+    audience: typeof value.audience === "string" ? value.audience : "",
+    desiredOutcome:
+      typeof value.desiredOutcome === "string" ? value.desiredOutcome : "",
+  };
+}
+
+function MicrophoneIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+      <rect height="11" rx="4" width="7" x="8.5" y="3" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21m-3 0h6" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export default function RecordPage() {
+  const [context, setContext] = useState(emptyContext);
+  const [selectedMoment, setSelectedMoment] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const savedContext = window.localStorage.getItem(storageKey);
+
+    if (savedContext) {
+      try {
+        setContext(normalizeContext(JSON.parse(savedContext)));
+      } catch {
+        window.localStorage.removeItem(storageKey);
+      }
+    }
+
+    setSelectedMoment(window.localStorage.getItem(momentStorageKey) || "");
+
+    setIsLoaded(true);
+  }, []);
+
+  const guidance = momentGuidance[selectedMoment] ?? momentGuidance[conversationToMoment[context.conversationType]] ?? {
+    title: "No executive moment selected",
+    reminders: [
+      "Choose an executive moment before recording.",
+      "Add your conversation context for tailored coaching.",
+      "Return when you are ready to practice.",
+    ],
+  };
+
   return (
-    <main>
-      <h1>Record your response</h1>
-      <p>This step will capture your practice response for coaching.</p>
-      <nav aria-label="Application flow">
-        <Link className="btn btn-ghost" href="/moment">
-          Back to moment
-        </Link>
-        <Link className="btn btn-primary" href="/analyzing">
-          Continue to analysis
-        </Link>
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.progress}>
+          <div className={styles.progressCopy}>
+            <span>Step 3 of 5</span>
+            <span>Practice Your Conversation</span>
+          </div>
+          <div aria-hidden="true" className={styles.progressTrack}>
+            <span />
+          </div>
+        </div>
+        <p className={styles.eyebrow}>Executive practice room</p>
+        <h1>Practice Your Conversation</h1>
+      </header>
+
+      <section className={styles.briefing} aria-labelledby="briefing-title">
+        <div className={styles.briefingHeading}>
+          <p className={styles.eyebrow}>Your executive briefing</p>
+          <h2 id="briefing-title">{isLoaded ? guidance.title : "Loading your context…"}</h2>
+        </div>
+        <dl>
+          <div>
+            <dt>Conversation Type</dt>
+            <dd>{isLoaded ? context.conversationType || "Not provided" : "—"}</dd>
+          </div>
+          <div>
+            <dt>Audience</dt>
+            <dd>{isLoaded ? context.audience || "Not provided" : "—"}</dd>
+          </div>
+          <div className={styles.outcome}>
+            <dt>Desired Outcome</dt>
+            <dd>{isLoaded ? context.desiredOutcome || "Not provided" : "—"}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className={styles.reminders} aria-labelledby="reminders-title">
+        <div>
+          <p className={styles.eyebrow}>Before you begin</p>
+          <h2 id="reminders-title">Three things to remember.</h2>
+        </div>
+        <ol>
+          {guidance.reminders.map((reminder, index) => (
+            <li key={reminder}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <p>{reminder}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className={styles.practiceRoom} aria-labelledby="practice-title">
+        <div className={styles.practiceHeading}>
+          <div>
+            <p className={styles.eyebrow}>60-second practice</p>
+            <h2 id="practice-title">Take the floor.</h2>
+          </div>
+          <span className={styles.timer} aria-label="60-second timer placeholder">01:00</span>
+        </div>
+
+        <div className={styles.recorder}>
+          <p className={styles.countdown} aria-label="Countdown placeholder">3 · 2 · 1</p>
+          <button
+            aria-label="Microphone control is a placeholder"
+            className={styles.microphone}
+            disabled
+            type="button"
+          >
+            <MicrophoneIcon />
+          </button>
+          <p className={styles.status} aria-live="polite">Ready when you are</p>
+          <div className={styles.waveform} aria-label="Animated waveform placeholder" role="img">
+            {[20, 34, 52, 32, 65, 42, 76, 48, 28, 58, 38, 66, 31, 51, 24].map((height, index) => (
+              <span key={`${height}-${index}`} style={{ height: `${height}%` }} />
+            ))}
+          </div>
+          <p className={styles.placeholderNote}>Recording controls will be available here.</p>
+        </div>
+      </section>
+
+      <section className={styles.alternative} aria-labelledby="upload-title">
+        <div>
+          <p className={styles.eyebrow}>Alternative</p>
+          <h2 id="upload-title">Upload Audio</h2>
+          <p>Use a response you have already recorded.</p>
+        </div>
+        <button disabled type="button">Choose audio file</button>
+      </section>
+
+      <nav className={styles.navigation} aria-label="Practice navigation">
+        <Link className="btn btn-ghost" href="/context">Back</Link>
+        <button className="btn btn-primary" disabled type="button">
+          Continue to Analysis
+        </button>
       </nav>
     </main>
   );

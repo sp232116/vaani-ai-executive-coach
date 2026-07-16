@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./moment.module.css";
 
@@ -45,6 +45,8 @@ const moments = [
   },
 ];
 
+const momentStorageKey = "vaani-selected-executive-moment";
+
 function MomentIcon({ name }) {
   const paths = {
     growth: <path d="M5 18 10 13l3 3 6-7M15 9h4v4" />,
@@ -73,13 +75,26 @@ export default function MomentPage() {
   const [selectedMoment, setSelectedMoment] = useState(null);
   const router = useRouter();
 
+  useEffect(() => {
+    const savedMoment = window.localStorage.getItem(momentStorageKey);
+
+    if (moments.some((moment) => moment.id === savedMoment)) {
+      setSelectedMoment(savedMoment);
+    }
+  }, []);
+
+  function selectMoment(momentId) {
+    setSelectedMoment(momentId);
+    window.localStorage.setItem(momentStorageKey, momentId);
+  }
+
   function handleCardKeyDown(event, index) {
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
 
     event.preventDefault();
     const direction = event.key === "ArrowRight" ? 1 : -1;
     const nextIndex = (index + direction + moments.length) % moments.length;
-    setSelectedMoment(moments[nextIndex].id);
+    selectMoment(moments[nextIndex].id);
     document.getElementById(moments[nextIndex].id)?.focus();
   }
 
@@ -119,7 +134,7 @@ export default function MomentPage() {
               className={`${styles.card} ${isSelected ? styles.selected : ""}`}
               id={moment.id}
               key={moment.id}
-              onClick={() => setSelectedMoment(moment.id)}
+              onClick={() => selectMoment(moment.id)}
               onKeyDown={(event) => handleCardKeyDown(event, index)}
               role="radio"
               type="button"
@@ -150,7 +165,7 @@ export default function MomentPage() {
         <button
           className="btn btn-primary"
           disabled={!selectedMoment}
-          onClick={() => router.push("/record")}
+          onClick={() => router.push("/context")}
           type="button"
         >
           Continue <span aria-hidden="true">→</span>

@@ -1,0 +1,179 @@
+.page {
+  width: min(100% - (2 * var(--space-6)), 48rem);
+  margin-inline: auto;
+  padding-block: var(--space-10) var(--space-20);
+}
+
+.progress {
+  margin-bottom: var(--space-10);
+}
+
+.progressCopy {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+  color: var(--vaani-color-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.progressCopy span:last-child {
+  color: var(--vaani-color-primary);
+  text-align: right;
+}
+
+.progressTrack {
+  height: 0.1875rem;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--vaani-color-border);
+}
+
+.progressTrack span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--vaani-color-accent);
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-3);
+  color: var(--vaani-color-accent-hover);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: clamp(var(--font-size-3xl), 5vw, var(--font-size-5xl));
+}
+
+.header > p:last-child {
+  max-width: 32rem;
+  margin: var(--space-4) 0 0;
+  color: var(--vaani-color-muted);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-relaxed);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-8);
+  margin-top: var(--space-12);
+}
+
+.fieldGroup {
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.fieldGroup legend {
+  margin-bottom: var(--space-3);
+  color: var(--vaani-color-primary);
+  font-family: var(--vaani-font-heading);
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  line-height: var(--line-height-tight);
+}
+
+.selectWrap,
+.textareaWrap {
+  display: block;
+}
+
+.selectWrap select,
+.textareaWrap textarea {
+  width: 100%;
+  border: 1px solid var(--vaani-color-border);
+  border-radius: var(--radius-md);
+  background: var(--vaani-color-surface);
+  color: var(--vaani-color-foreground);
+  font-family: var(--vaani-font-body);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.selectWrap select {
+  height: 3.25rem;
+  padding-inline: var(--space-4);
+}
+
+.textareaWrap textarea {
+  min-height: 8.5rem;
+  padding: var(--space-4);
+  resize: vertical;
+}
+
+.selectWrap select:focus,
+.textareaWrap textarea:focus {
+  border-color: var(--vaani-color-accent);
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.checkboxGrid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 3rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--vaani-color-border);
+  border-radius: var(--radius-md);
+  background: var(--vaani-color-surface);
+  color: var(--vaani-color-primary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.checkbox:hover {
+  border-color: #d4bd7a;
+}
+
+.checkbox:has(input:checked) {
+  border-color: var(--vaani-color-accent);
+  background: #fffdf7;
+}
+
+.checkbox input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--vaani-color-primary);
+}
+
+.checkbox:focus-within {
+  box-shadow: var(--shadow-focus);
+}
+
+.navigation {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-10);
+}
+
+@media (min-width: 40rem) {
+  .page {
+    padding-block: var(--space-16) var(--space-24);
+  }
+
+  .checkboxGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -1,0 +1,235 @@
+.page {
+  width: min(100% - (2 * var(--space-6)), 46rem);
+  min-height: 100vh;
+  margin-inline: auto;
+  padding-block: var(--space-10) var(--space-16);
+}
+
+.progress {
+  margin-bottom: var(--space-10);
+}
+
+.progressCopy {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+  color: var(--vaani-color-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.progressCopy span:last-child {
+  color: var(--vaani-color-primary);
+  text-align: right;
+}
+
+.progressTrack {
+  height: 0.1875rem;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--vaani-color-border);
+}
+
+.progressTrack span {
+  display: block;
+  width: 80%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--vaani-color-accent);
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-3);
+  color: var(--vaani-color-accent-hover);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  max-width: 40rem;
+  margin: 0;
+  font-size: clamp(var(--font-size-3xl), 5vw, var(--font-size-5xl));
+}
+
+.header > p:last-child {
+  max-width: 36rem;
+  margin: var(--space-4) 0 0;
+  color: var(--vaani-color-muted);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-relaxed);
+}
+
+.analysis {
+  display: grid;
+  justify-items: center;
+  margin-top: var(--space-12);
+}
+
+.visualization {
+  position: relative;
+  width: min(14rem, 58vw);
+  aspect-ratio: 1;
+}
+
+.outerRing,
+.innerRing,
+.core,
+.orbitOne,
+.orbitTwo {
+  position: absolute;
+  border-radius: var(--radius-pill);
+}
+
+.outerRing {
+  inset: 0;
+  border: 1px solid rgb(201 168 76 / 0.35);
+  animation: rotate 14s linear infinite;
+}
+
+.innerRing {
+  inset: 14%;
+  border: 1px solid rgb(10 22 40 / 0.22);
+  animation: rotateReverse 10s linear infinite;
+}
+
+.core {
+  inset: 35%;
+  background: var(--vaani-color-primary);
+  box-shadow: 0 0 0 0.7rem rgb(201 168 76 / 0.1), 0 0 2rem rgb(201 168 76 / 0.2);
+  animation: breathe 2.8s ease-in-out infinite;
+}
+
+.orbitOne,
+.orbitTwo {
+  width: 0.6rem;
+  height: 0.6rem;
+  background: var(--vaani-color-accent);
+}
+
+.orbitOne {
+  top: 10%;
+  left: 48%;
+  transform-origin: 0 5.6rem;
+  animation: orbit 5s linear infinite;
+}
+
+.orbitTwo {
+  top: 77%;
+  left: 49%;
+  width: 0.4rem;
+  height: 0.4rem;
+  background: var(--vaani-color-primary);
+  transform-origin: 0 -5.8rem;
+  animation: orbitReverse 7s linear infinite;
+}
+
+@keyframes rotate {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rotateReverse {
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes breathe {
+  50% { transform: scale(1.11); }
+}
+
+@keyframes orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orbitReverse {
+  to { transform: rotate(-360deg); }
+}
+
+.stageList {
+  display: grid;
+  width: 100%;
+  gap: var(--space-3);
+  padding: 0;
+  margin: var(--space-10) 0 0;
+  list-style: none;
+}
+
+.stageList li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 3.25rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--vaani-color-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.stageIndicator {
+  display: grid;
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--vaani-color-border);
+  border-radius: var(--radius-pill);
+}
+
+.activeStage {
+  border-color: #e4d6ae !important;
+  background: #fffdf7;
+  color: var(--vaani-color-primary) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.activeStage .stageIndicator {
+  border-color: var(--vaani-color-accent);
+}
+
+.activeStage .stageIndicator span {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: var(--radius-pill);
+  background: var(--vaani-color-accent);
+  animation: indicatorPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes indicatorPulse {
+  50% { transform: scale(0.55); opacity: 0.55; }
+}
+
+.footer {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-10);
+  text-align: center;
+}
+
+.footer p {
+  margin: 0;
+  color: var(--vaani-color-muted);
+  font-size: var(--font-size-sm);
+}
+
+@media (min-width: 40rem) {
+  .page {
+    padding-block: var(--space-16) var(--space-24);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .outerRing,
+  .innerRing,
+  .core,
+  .orbitOne,
+  .orbitTwo,
+  .activeStage .stageIndicator span {
+    animation: none;
+  }
+}
