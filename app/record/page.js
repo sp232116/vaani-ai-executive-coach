@@ -6,6 +6,8 @@ import styles from "./record.module.css";
 
 const storageKey = "vaani-executive-context";
 const momentStorageKey = "vaani-selected-executive-moment";
+const maxAudioSize = 25 * 1024 * 1024;
+const supportedAudioExtensions = ["mp3", "wav", "m4a", "webm"];
 
 const momentGuidance = {
   "promotion-appraisal": {
@@ -74,10 +76,20 @@ function MicrophoneIcon() {
   );
 }
 
+function formatDuration(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 export default function RecordPage() {
   const [context, setContext] = useState(emptyContext);
   const [selectedMoment, setSelectedMoment] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
+  const [selectedAudio, setSelectedAudio] = useState(null);
+  const [audioDuration, setAudioDuration] = useState("");
+  const [uploadError, setUploadError] = useState("");
 
   useEffect(() => {
     const savedContext = window.localStorage.getItem(storageKey);
@@ -94,6 +106,59 @@ export default function RecordPage() {
 
     setIsLoaded(true);
   }, []);
+
+  useEffect(() => {
+    if (!selectedAudio) {
+      setAudioDuration("");
+      return undefined;
+    }
+
+    const audioUrl = URL.createObjectURL(selectedAudio);
+    const audio = document.createElement("audio");
+    let isCurrent = true;
+
+    audio.preload = "metadata";
+    audio.src = audioUrl;
+    audio.onloadedmetadata = () => {
+      if (isCurrent && Number.isFinite(audio.duration) && audio.duration > 0) {
+        setAudioDuration(formatDuration(audio.duration));
+      }
+    };
+    audio.onerror = () => {
+      if (isCurrent) {
+        setAudioDuration("");
+      }
+    };
+
+    return () => {
+      isCurrent = false;
+      URL.revokeObjectURL(audioUrl);
+    };
+  }, [selectedAudio]);
+
+  function handleAudioSelection(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    const extension = file.name.split(".").pop()?.toLowerCase();
+
+    if (!supportedAudioExtensions.includes(extension)) {
+      setSelectedAudio(null);
+      setUploadError("Choose an MP3, WAV, M4A, or WebM audio file.");
+      return;
+    }
+
+    if (file.size > maxAudioSize) {
+      setSelectedAudio(null);
+      setUploadError("Choose an audio file smaller than 25 MB.");
+      return;
+    }
+
+    setUploadError("");
+    setSelectedAudio(file);
+  }
 
   const guidance = momentGuidance[selectedMoment] ?? momentGuidance[conversationToMoment[context.conversationType]] ?? {
     title: "No executive moment selected",
@@ -191,12 +256,35 @@ export default function RecordPage() {
           <h2 id="upload-title">Upload Audio</h2>
           <p>Use a response you have already recorded.</p>
         </div>
-        <button disabled type="button">Choose audio file</button>
+        <div className={styles.uploadControls}>
+          <label className={styles.uploadButton}>
+            <input
+              accept=".mp3,.wav,.m4a,.webm,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/webm"
+              aria-describedby="audio-upload-help audio-upload-error"
+              className={styles.fileInput}
+              onChange={handleAudioSelection}
+              type="file"
+            />
+            Choose audio file
+          </label>
+          <p id="audio-upload-help">MP3, WAV, M4A, or WebM · 25 MB maximum</p>
+          {uploadError && (
+            <p className={styles.uploadError} id="audio-upload-error" role="alert">
+              {uploadError}
+            </p>
+          )}
+          {selectedAudio && (
+            <div className={styles.fileDetails} role="status">
+              <strong>{selectedAudio.name}</strong>
+              <span>{audioDuration ? `Duration: ${audioDuration}` : "Duration unavailable"}</span>
+            </div>
+          )}
+        </div>
       </section>
 
       <nav className={styles.navigation} aria-label="Practice navigation">
         <Link className="btn btn-ghost" href="/context">Back</Link>
-        <button className="btn btn-primary" disabled type="button">
+        <button className="btn btn-primary" disabled={!selectedAudio} type="button">
           Continue to Analysis
         </button>
       </nav>
