@@ -1,5 +1,5 @@
 import { analyzeWithGemini } from "./gemini";
 
-export async function analyzeCommunication(input) {
-  return analyzeWithGemini(input);
+export async function analyzeCommunication(input, options) {
+  return analyzeWithGemini(input, options);
 }

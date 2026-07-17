@@ -10,22 +10,26 @@ const audioMimeTypes = {
   webm: "audio/webm",
 };
 
-function getErrorStatus(error) {
-  if (typeof error?.status === "number") {
-    return error.status;
-  }
+function getProviderError(error) {
+  const rawMessage = error instanceof Error ? error.message : "";
+  let parsedError;
 
   try {
-    return JSON.parse(error?.message)?.error?.code;
+    parsedError = JSON.parse(rawMessage)?.error;
   } catch {
-    return undefined;
+    parsedError = undefined;
   }
-}
 
-function getErrorMessage(error) {
-  return error instanceof Error
-    ? error.message
-    : "Unknown Gemini request failure.";
+  const status =
+    typeof error?.status === "number" ? error.status : parsedError?.code;
+  const message =
+    typeof parsedError?.message === "string"
+      ? parsedError.message
+      : rawMessage && !rawMessage.trim().startsWith("{")
+        ? rawMessage
+        : "Gemini request failed.";
+
+  return { status, message };
 }
 
 function getFormValue(formData, name) {
@@ -92,7 +96,10 @@ export async function POST(request) {
   try {
     worries = parseWorries(getFormValue(formData, "worries"));
   } catch (error) {
-    return Response.json({ error: getErrorMessage(error) }, { status: 400 });
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Invalid request." },
+      { status: 400 },
+    );
   }
 
   const audioData = Buffer.from(await audio.arrayBuffer()).toString("base64");
@@ -114,12 +121,49 @@ export async function POST(request) {
 
     return Response.json(result);
   } catch (error) {
-    const providerStatus = getErrorStatus(error);
+    const providerError = getProviderError(error);
     const status =
-      Number.isInteger(providerStatus) && providerStatus >= 400 && providerStatus <= 599
-        ? providerStatus
+      Number.isInteger(providerError.status) &&
+      providerError.status >= 400 &&
+      providerError.status <= 599
+        ? providerError.status
         : 502;
 
-    return Response.json({ error: getErrorMessage(error) }, { status });
+    if (status === 429) {
+      return Response.json(
+        {
+          success: false,
+          provider: "gemini",
+          retryable: true,
+          code: 429,
+          message: "Gemini rate limit exceeded. Please retry in about one minute.",
+        },
+        { status },
+      );
+    }
+
+    if (status === 503) {
+      return Response.json(
+        {
+          success: false,
+          provider: "gemini",
+          retryable: true,
+          code: 503,
+          message: "Gemini is temporarily unavailable.",
+        },
+        { status },
+      );
+    }
+
+    return Response.json(
+      {
+        success: false,
+        provider: "gemini",
+        retryable: false,
+        code: status,
+        message: providerError.message,
+      },
+      { status },
+    );
   }
 }

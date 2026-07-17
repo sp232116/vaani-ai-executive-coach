@@ -168,6 +168,8 @@
   color: var(--vaani-color-muted);
   font-size: var(--font-size-sm);
   font-weight: 600;
+  transition: background-color 240ms ease, border-color 240ms ease,
+    box-shadow 240ms ease, color 240ms ease;
 }
 
 .stageIndicator {

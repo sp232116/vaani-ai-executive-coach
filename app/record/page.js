@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { startAnalysisRequest } from "@/lib/analysisSession";
 import styles from "./record.module.css";
 
 const storageKey = "vaani-executive-context";
@@ -51,6 +53,7 @@ const emptyContext = {
   conversationType: "",
   audience: "",
   desiredOutcome: "",
+  worries: [],
 };
 
 function normalizeContext(value) {
@@ -64,6 +67,9 @@ function normalizeContext(value) {
     audience: typeof value.audience === "string" ? value.audience : "",
     desiredOutcome:
       typeof value.desiredOutcome === "string" ? value.desiredOutcome : "",
+    worries: Array.isArray(value.worries)
+      ? value.worries.filter((worry) => typeof worry === "string")
+      : [],
   };
 }
 
@@ -90,6 +96,8 @@ export default function RecordPage() {
   const [selectedAudio, setSelectedAudio] = useState(null);
   const [audioDuration, setAudioDuration] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const savedContext = window.localStorage.getItem(storageKey);
@@ -158,6 +166,23 @@ export default function RecordPage() {
 
     setUploadError("");
     setSelectedAudio(file);
+  }
+
+  function handleAnalysis() {
+    if (!selectedAudio || isAnalyzing) return;
+
+    setIsAnalyzing(true);
+    startAnalysisRequest({
+      audio: selectedAudio,
+      context: {
+        selectedMoment,
+        conversationType: context.conversationType,
+        audience: context.audience,
+        desiredOutcome: context.desiredOutcome,
+        worries: context.worries,
+      },
+    });
+    router.push("/analyzing");
   }
 
   const guidance = momentGuidance[selectedMoment] ?? momentGuidance[conversationToMoment[context.conversationType]] ?? {
@@ -284,7 +309,12 @@ export default function RecordPage() {
 
       <nav className={styles.navigation} aria-label="Practice navigation">
         <Link className="btn btn-ghost" href="/context">Back</Link>
-        <button className="btn btn-primary" disabled={!selectedAudio} type="button">
+        <button
+          className="btn btn-primary"
+          disabled={!selectedAudio || isAnalyzing}
+          onClick={handleAnalysis}
+          type="button"
+        >
           Continue to Analysis
         </button>
       </nav>

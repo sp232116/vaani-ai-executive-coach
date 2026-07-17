@@ -38,7 +38,10 @@ export async function GET() {
   }
 
   try {
-    await analyzeCommunication();
+    await analyzeCommunication(
+      undefined,
+      process.env.NODE_ENV === "development" ? { maxRetries: 0 } : undefined,
+    );
 
     return Response.json({ success: true, provider: "gemini" });
   } catch (error) {
