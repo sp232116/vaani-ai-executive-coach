@@ -1,9 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import { momentCriteria, validateAnalysisResponse } from "@/lib/analysisSchema";
 
-const maxRetries = 3;
+const maxRetries = 1;
+const requestTimeoutMilliseconds = 25_000;
 const primaryModel = "gemini-3.5-flash";
-const fallbackModel = "gemini-2.5-flash";
+const fallbackModel = "gemini-3.1-flash-lite";
 
 function requiredTextSchema(maxLength, description) {
   return {
@@ -120,6 +121,15 @@ class GeminiResponseError extends Error {
   }
 }
 
+class GeminiRequestTimeoutError extends Error {
+  constructor(model) {
+    super(`Gemini request timed out after ${requestTimeoutMilliseconds / 1000} seconds.`);
+    this.name = "GeminiRequestTimeoutError";
+    this.status = 504;
+    this.model = model;
+  }
+}
+
 function getErrorStatus(error) {
   if (typeof error?.status === "number") return error.status;
 
@@ -136,6 +146,10 @@ function wait(milliseconds) {
 
 function isRetryableStatus(status) {
   return status === 429 || status === 503;
+}
+
+function isRetryableError(error) {
+  return error instanceof GeminiRequestTimeoutError || isRetryableStatus(getErrorStatus(error));
 }
 
 function buildAnalysisPrompt(context) {
@@ -249,18 +263,45 @@ function buildGenerationRequest(input, model) {
   };
 }
 
+async function generateContentWithTimeout(gemini, request, model) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMilliseconds);
+
+  try {
+    return await gemini.models.generateContent({
+      ...request,
+      config: {
+        ...request.config,
+        abortSignal: controller.signal,
+      },
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      console.error("[Gemini] Model request timed out.", {
+        model,
+        timeoutMilliseconds: requestTimeoutMilliseconds,
+      });
+      throw new GeminiRequestTimeoutError(model);
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function generateWithModel({ gemini, input, model, retryLimit, role }) {
   const request = buildGenerationRequest(input, model);
   let lastError;
 
   for (let attempt = 0; attempt <= retryLimit; attempt += 1) {
     try {
-      const response = await gemini.models.generateContent(request);
+      const response = await generateContentWithTimeout(gemini, request, model);
       return input ? parseAnalysisResponse(response, input.context.selectedExecutiveMoment) : response;
     } catch (error) {
       lastError = error;
       const status = getErrorStatus(error);
-      const retryable = isRetryableStatus(status);
+      const retryable = isRetryableError(error);
 
       console.error("[Gemini] Model attempt failed.", {
         role,
@@ -304,7 +345,7 @@ export async function analyzeWithGemini(input, options = {}) {
     const status = getErrorStatus(error);
 
     // Health checks continue to exercise only the primary model. Fallback applies to report generation.
-    if (!input || !isRetryableStatus(status)) {
+    if (!input || !isRetryableError(error)) {
       console.error("[Gemini] Final model failure.", {
         role: "primary",
         model: primaryModel,
