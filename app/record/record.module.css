@@ -200,6 +200,18 @@
   background: radial-gradient(circle at 35% 30%, #203758, var(--vaani-color-primary));
   box-shadow: 0 0 0 0.65rem rgb(201 168 76 / 0.1), 0 0 0 1.25rem rgb(201 168 76 / 0.05);
   color: var(--vaani-color-accent);
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.microphone:hover:not(:disabled) {
+  transform: translateY(-0.15rem);
+  box-shadow: 0 0 0 0.65rem rgb(201 168 76 / 0.14), 0 0 0 1.25rem rgb(201 168 76 / 0.07);
+}
+
+.microphone:focus-visible {
+  outline: 2px solid var(--vaani-color-accent);
+  outline-offset: 0.4rem;
 }
 
 .microphone:disabled {
@@ -253,6 +265,40 @@
   margin: var(--space-5) 0 0;
   color: rgb(255 255 255 / 0.58);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+  text-align: center;
+}
+
+.stopButton {
+  margin-top: var(--space-5);
+  border: 0;
+  background: transparent;
+  color: var(--vaani-color-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+
+.recordingError {
+  margin: var(--space-4) 0 0;
+  color: #ffb4ab;
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.recordingReady {
+  display: grid;
+  width: min(100%, 28rem);
+  gap: var(--space-4);
+  justify-items: center;
+  margin-top: var(--space-6);
+}
+
+.recordingReady audio {
+  width: 100%;
 }
 
 .alternative {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { startAnalysisRequest } from "@/lib/analysisSession";
@@ -89,6 +89,18 @@ function formatDuration(totalSeconds) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function getRecordingFormat() {
+  if (MediaRecorder.isTypeSupported?.("audio/webm;codecs=opus")) {
+    return { mimeType: "audio/webm;codecs=opus", extension: "webm" };
+  }
+
+  if (MediaRecorder.isTypeSupported?.("audio/mp4")) {
+    return { mimeType: "audio/mp4", extension: "m4a" };
+  }
+
+  return null;
+}
+
 export default function RecordPage() {
   const [context, setContext] = useState(emptyContext);
   const [selectedMoment, setSelectedMoment] = useState("");
@@ -97,7 +109,47 @@ export default function RecordPage() {
   const [audioDuration, setAudioDuration] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [recordingState, setRecordingState] = useState("idle");
+  const [countdown, setCountdown] = useState(3);
+  const [secondsRemaining, setSecondsRemaining] = useState(60);
+  const [recordingError, setRecordingError] = useState("");
+  const [recordingPreviewUrl, setRecordingPreviewUrl] = useState("");
+  const mediaRecorderRef = useRef(null);
+  const streamRef = useRef(null);
+  const chunksRef = useRef([]);
+  const countdownTimerRef = useRef(null);
+  const recordingTimerRef = useRef(null);
+  const previewUrlRef = useRef("");
+  const recordingFailedRef = useRef(false);
+  const isMountedRef = useRef(true);
   const router = useRouter();
+
+  function clearCountdownTimer() {
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+  }
+
+  function clearRecordingTimer() {
+    if (recordingTimerRef.current) {
+      window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  }
+
+  function stopMicrophoneStream() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }
+
+  function clearRecordingPreview() {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = "";
+    }
+    setRecordingPreviewUrl("");
+  }
 
   useEffect(() => {
     const savedContext = window.localStorage.getItem(storageKey);
@@ -113,6 +165,23 @@ export default function RecordPage() {
     setSelectedMoment(window.localStorage.getItem(momentStorageKey) || "");
 
     setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      clearCountdownTimer();
+      clearRecordingTimer();
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+      stopMicrophoneStream();
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -164,8 +233,166 @@ export default function RecordPage() {
       return;
     }
 
+    clearRecordingPreview();
+    setRecordingState("idle");
+    setRecordingError("");
     setUploadError("");
     setSelectedAudio(file);
+  }
+
+  function finishRecording() {
+    clearRecordingTimer();
+    const recorder = mediaRecorderRef.current;
+
+    if (recorder?.state === "recording") {
+      recorder.stop();
+    } else {
+      stopMicrophoneStream();
+      setRecordingState("idle");
+    }
+  }
+
+  function beginRecording(stream) {
+    const recordingFormat = getRecordingFormat();
+    let recorder;
+
+    if (!recordingFormat) {
+      stopMicrophoneStream();
+      setRecordingState("error");
+      setRecordingError("This browser cannot create a compatible audio recording. Upload an audio file instead.");
+      return;
+    }
+
+    try {
+      recorder = new MediaRecorder(stream, { mimeType: recordingFormat.mimeType });
+    } catch {
+      stopMicrophoneStream();
+      setRecordingState("error");
+      setRecordingError("Your browser could not start an audio recording. Try uploading an audio file instead.");
+      return;
+    }
+
+    chunksRef.current = [];
+    recordingFailedRef.current = false;
+    mediaRecorderRef.current = recorder;
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunksRef.current.push(event.data);
+    };
+    recorder.onerror = () => {
+      recordingFailedRef.current = true;
+      clearRecordingTimer();
+      stopMicrophoneStream();
+      setRecordingState("error");
+      setRecordingError("Recording stopped unexpectedly. Please try again or upload an audio file.");
+    };
+    recorder.onstop = () => {
+      clearRecordingTimer();
+      stopMicrophoneStream();
+      mediaRecorderRef.current = null;
+
+      if (!isMountedRef.current || recordingFailedRef.current) {
+        chunksRef.current = [];
+        return;
+      }
+
+      const recordingBlob = new Blob(chunksRef.current, {
+        type: recorder.mimeType || "audio/webm",
+      });
+
+      if (!recordingBlob.size) {
+        setRecordingState("error");
+        setRecordingError("No audio was captured. Please try recording again.");
+        return;
+      }
+
+      const recordedFile = new File(
+        [recordingBlob],
+        `vaani-practice-${Date.now()}.${recordingFormat.extension}`,
+        { type: recordingBlob.type || recordingFormat.mimeType },
+      );
+      const previewUrl = URL.createObjectURL(recordedFile);
+
+      clearRecordingPreview();
+      previewUrlRef.current = previewUrl;
+      setRecordingPreviewUrl(previewUrl);
+      setSelectedAudio(recordedFile);
+      setUploadError("");
+      setRecordingError("");
+      setRecordingState("ready");
+    };
+
+    recorder.start();
+    setSecondsRemaining(60);
+    setRecordingState("recording");
+    let remaining = 60;
+    recordingTimerRef.current = window.setInterval(() => {
+      remaining -= 1;
+      setSecondsRemaining(remaining);
+
+      if (remaining <= 0) finishRecording();
+    }, 1000);
+  }
+
+  async function startRecording() {
+    if (recordingState === "recording") {
+      finishRecording();
+      return;
+    }
+
+    if (recordingState === "countdown") {
+      clearCountdownTimer();
+      stopMicrophoneStream();
+      setRecordingState("idle");
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setRecordingState("error");
+      setRecordingError("Recording is not supported in this browser. Upload an audio file instead.");
+      return;
+    }
+
+    clearRecordingPreview();
+    setSelectedAudio(null);
+    setAudioDuration("");
+    setUploadError("");
+    setRecordingError("");
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      setCountdown(3);
+      setRecordingState("countdown");
+      let remaining = 3;
+
+      countdownTimerRef.current = window.setInterval(() => {
+        remaining -= 1;
+        if (remaining > 0) {
+          setCountdown(remaining);
+          return;
+        }
+
+        clearCountdownTimer();
+        beginRecording(stream);
+      }, 1000);
+    } catch (error) {
+      const isDenied = error instanceof DOMException && error.name === "NotAllowedError";
+      setRecordingState("error");
+      setRecordingError(
+        isDenied
+          ? "Microphone access was denied. Allow microphone access in your browser settings, then try again."
+          : "We could not access your microphone. Check your device and try again, or upload an audio file.",
+      );
+    }
+  }
+
+  function handleRecordAgain() {
+    clearRecordingPreview();
+    setSelectedAudio(null);
+    setAudioDuration("");
+    setRecordingError("");
+    setRecordingState("idle");
+    setSecondsRemaining(60);
   }
 
   function handleAnalysis() {
@@ -252,26 +479,50 @@ export default function RecordPage() {
             <p className={styles.eyebrow}>60-second practice</p>
             <h2 id="practice-title">Take the floor.</h2>
           </div>
-          <span className={styles.timer} aria-label="60-second timer placeholder">01:00</span>
+          <span className={styles.timer} aria-label={`${secondsRemaining} seconds remaining`}>
+            {formatDuration(secondsRemaining)}
+          </span>
         </div>
 
         <div className={styles.recorder}>
-          <p className={styles.countdown} aria-label="Countdown placeholder">3 · 2 · 1</p>
+          <p className={styles.countdown} aria-live="assertive">
+            {recordingState === "countdown" ? countdown : "3 · 2 · 1"}
+          </p>
           <button
-            aria-label="Microphone control is a placeholder"
+            aria-label={recordingState === "recording" ? "Stop recording" : recordingState === "countdown" ? "Cancel recording countdown" : "Start recording"}
             className={styles.microphone}
-            disabled
+            disabled={isAnalyzing}
+            onClick={startRecording}
             type="button"
           >
             <MicrophoneIcon />
           </button>
-          <p className={styles.status} aria-live="polite">Ready when you are</p>
+          <p className={styles.status} aria-live="polite">
+            {recordingState === "countdown" && `Starting in ${countdown}`}
+            {recordingState === "recording" && "Recording live — tap the microphone to stop"}
+            {recordingState === "ready" && "Your recording is ready"}
+            {(recordingState === "idle" || recordingState === "error") && "Ready when you are"}
+          </p>
           <div className={styles.waveform} aria-label="Animated waveform placeholder" role="img">
             {[20, 34, 52, 32, 65, 42, 76, 48, 28, 58, 38, 66, 31, 51, 24].map((height, index) => (
               <span key={`${height}-${index}`} style={{ height: `${height}%` }} />
             ))}
           </div>
-          <p className={styles.placeholderNote}>Recording controls will be available here.</p>
+          <p className={styles.placeholderNote}>
+            You have 60 seconds. Deliver the most important part of what you would say in the real conversation. Focus on your opening, key message, and desired outcome.
+          </p>
+          {recordingState === "recording" && (
+            <button className={styles.stopButton} onClick={finishRecording} type="button">
+              Stop recording
+            </button>
+          )}
+          {recordingError && <p className={styles.recordingError} role="alert">{recordingError}</p>}
+          {recordingPreviewUrl && recordingState === "ready" && (
+            <div className={styles.recordingReady}>
+              <audio controls src={recordingPreviewUrl}>Your browser does not support audio playback.</audio>
+              <button className="btn btn-ghost" onClick={handleRecordAgain} type="button">Record Again</button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -287,6 +538,7 @@ export default function RecordPage() {
               accept=".mp3,.wav,.m4a,.webm,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/webm"
               aria-describedby="audio-upload-help audio-upload-error"
               className={styles.fileInput}
+              disabled={recordingState === "countdown" || recordingState === "recording"}
               onChange={handleAudioSelection}
               type="file"
             />
@@ -311,7 +563,7 @@ export default function RecordPage() {
         <Link className="btn btn-ghost" href="/context">Back</Link>
         <button
           className="btn btn-primary"
-          disabled={!selectedAudio || isAnalyzing}
+          disabled={!selectedAudio || isAnalyzing || recordingState === "countdown" || recordingState === "recording"}
           onClick={handleAnalysis}
           type="button"
         >
