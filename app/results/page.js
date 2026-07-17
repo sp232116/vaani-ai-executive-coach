@@ -2,75 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { validateAnalysisResponse } from "@/lib/analysisSchema";
 import styles from "./results.module.css";
 
 const analysisResultKey = "vaani-analysis-result";
 const analysisErrorKey = "vaani-analysis-error";
-const responseFields = [
-  "overall_score",
-  "executive_readiness",
-  "score_breakdown",
-  "strengths",
-  "growth_opportunities",
-  "executive_rewrite",
-  "practice_plan",
-  "metadata",
-];
-
-function isAnalysisResponse(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-
-  const fields = Object.keys(value).sort();
-  const expectedFields = [...responseFields].sort();
-
-  const hasExpectedFields =
-    fields.length === expectedFields.length &&
-    fields.every((field, index) => field === expectedFields[index]);
-
-  return (
-    hasExpectedFields &&
-    typeof value.overall_score === "number" &&
-    value.executive_readiness &&
-    typeof value.executive_readiness.label === "string" &&
-    typeof value.executive_readiness.summary === "string" &&
-    Array.isArray(value.score_breakdown) &&
-    value.score_breakdown.every(
-      (item) =>
-        item &&
-        typeof item.criterion === "string" &&
-        typeof item.score === "number" &&
-        typeof item.rationale === "string",
-    ) &&
-    Array.isArray(value.strengths) &&
-    value.strengths.every(
-      (item) =>
-        item &&
-        typeof item.title === "string" &&
-        typeof item.evidence === "string" &&
-        typeof item.impact === "string",
-    ) &&
-    Array.isArray(value.growth_opportunities) &&
-    value.growth_opportunities.every(
-      (item) =>
-        item &&
-        typeof item.title === "string" &&
-        typeof item.guidance === "string" &&
-        typeof item.priority === "string",
-    ) &&
-    value.executive_rewrite &&
-    typeof value.executive_rewrite.title === "string" &&
-    typeof value.executive_rewrite.before === "string" &&
-    typeof value.executive_rewrite.after === "string" &&
-    typeof value.executive_rewrite.note === "string" &&
-    value.practice_plan &&
-    typeof value.practice_plan.next_focus === "string" &&
-    typeof value.practice_plan.exercise === "string" &&
-    typeof value.practice_plan.success_measure === "string" &&
-    value.metadata &&
-    typeof value.metadata === "object"
-  );
-}
-
 export default function ResultsPage() {
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState("");
@@ -92,7 +28,7 @@ export default function ResultsPage() {
     try {
       const result = JSON.parse(savedResult);
 
-      if (!isAnalysisResponse(result)) {
+      if (!validateAnalysisResponse(result).valid) {
         throw new Error("The analysis response did not match the Vaani report schema.");
       }
 

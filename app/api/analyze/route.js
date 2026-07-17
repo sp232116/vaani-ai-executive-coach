@@ -129,6 +129,11 @@ export async function POST(request) {
         ? providerError.status
         : 502;
 
+    console.error("[Analyze] Gemini analysis failed.", {
+      status,
+      message: providerError.message,
+    });
+
     if (status === 429) {
       return Response.json(
         {
