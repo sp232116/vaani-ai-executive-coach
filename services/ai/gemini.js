@@ -2,6 +2,8 @@ import { GoogleGenAI } from "@google/genai";
 import { momentCriteria, validateAnalysisResponse } from "@/lib/analysisSchema";
 
 const maxRetries = 3;
+const primaryModel = "gemini-3.5-flash";
+const fallbackModel = "gemini-2.5-flash";
 
 function requiredTextSchema(maxLength, description) {
   return {
@@ -132,6 +134,10 @@ function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+function isRetryableStatus(status) {
+  return status === 429 || status === 503;
+}
+
 function buildAnalysisPrompt(context) {
   const criteria = momentCriteria[context.selectedExecutiveMoment]?.join(", ") || "the selected moment's criteria";
 
@@ -222,27 +228,30 @@ function parseAnalysisResponse(response, expectedMomentId) {
   return result;
 }
 
-export async function analyzeWithGemini(input, options = {}) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  const gemini = new GoogleGenAI({ apiKey });
+function buildGenerationRequest(input, model) {
+  if (!input) {
+    return {
+      model,
+      contents: "Reply with the single word: healthy",
+    };
+  }
+
+  return {
+    model,
+    contents: [
+      { inlineData: { mimeType: input.audio.mimeType, data: input.audio.data } },
+      { text: buildAnalysisPrompt(input.context) },
+    ],
+    config: {
+      responseMimeType: "application/json",
+      responseJsonSchema: analysisResponseJsonSchema,
+    },
+  };
+}
+
+async function generateWithModel({ gemini, input, model, retryLimit, role }) {
+  const request = buildGenerationRequest(input, model);
   let lastError;
-  const retryLimit = Number.isInteger(options.maxRetries) ? options.maxRetries : maxRetries;
-  const request = input
-    ? {
-        model: "gemini-3.5-flash",
-        contents: [
-          { inlineData: { mimeType: input.audio.mimeType, data: input.audio.data } },
-          { text: buildAnalysisPrompt(input.context) },
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseJsonSchema: analysisResponseJsonSchema,
-        },
-      }
-    : {
-        model: "gemini-3.5-flash",
-        contents: "Reply with the single word: healthy",
-      };
 
   for (let attempt = 0; attempt <= retryLimit; attempt += 1) {
     try {
@@ -251,16 +260,80 @@ export async function analyzeWithGemini(input, options = {}) {
     } catch (error) {
       lastError = error;
       const status = getErrorStatus(error);
-      console.error("[Gemini] Analysis request failed.", {
+      const retryable = isRetryableStatus(status);
+
+      console.error("[Gemini] Model attempt failed.", {
+        role,
+        model,
         attempt: attempt + 1,
         status: status ?? 502,
         message: error instanceof Error ? error.message : "Unknown Gemini error.",
+        retryable,
       });
 
-      if (status !== 503 || attempt === retryLimit) break;
-      await wait(500 * 2 ** attempt);
+      if (!retryable || attempt === retryLimit) break;
+
+      const backoffMilliseconds = 500 * 2 ** attempt;
+      console.info("[Gemini] Retrying model request.", {
+        role,
+        model,
+        nextAttempt: attempt + 2,
+        backoffMilliseconds,
+      });
+      await wait(backoffMilliseconds);
     }
   }
 
   throw lastError;
+}
+
+export async function analyzeWithGemini(input, options = {}) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const gemini = new GoogleGenAI({ apiKey });
+  const retryLimit = Number.isInteger(options.maxRetries) ? options.maxRetries : maxRetries;
+
+  try {
+    return await generateWithModel({
+      gemini,
+      input,
+      model: primaryModel,
+      retryLimit,
+      role: "primary",
+    });
+  } catch (error) {
+    const status = getErrorStatus(error);
+
+    // Health checks continue to exercise only the primary model. Fallback applies to report generation.
+    if (!input || !isRetryableStatus(status)) {
+      console.error("[Gemini] Final model failure.", {
+        role: "primary",
+        model: primaryModel,
+        status: status ?? 502,
+      });
+      throw error;
+    }
+
+    console.warn("[Gemini] Primary retries exhausted; triggering fallback.", {
+      primaryModel,
+      fallbackModel,
+      status,
+    });
+
+    try {
+      return await generateWithModel({
+        gemini,
+        input,
+        model: fallbackModel,
+        retryLimit,
+        role: "fallback",
+      });
+    } catch (fallbackError) {
+      console.error("[Gemini] Final model failure.", {
+        role: "fallback",
+        model: fallbackModel,
+        status: getErrorStatus(fallbackError) ?? 502,
+      });
+      throw fallbackError;
+    }
+  }
 }
