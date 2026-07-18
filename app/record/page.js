@@ -114,6 +114,7 @@ export default function RecordPage() {
   const [secondsRemaining, setSecondsRemaining] = useState(60);
   const [recordingError, setRecordingError] = useState("");
   const [recordingPreviewUrl, setRecordingPreviewUrl] = useState("");
+  const [isDiscardDialogOpen, setIsDiscardDialogOpen] = useState(false);
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
   const chunksRef = useRef([]);
@@ -334,6 +335,8 @@ export default function RecordPage() {
   }
 
   async function startRecording() {
+    if (recordingState === "ready") return;
+
     if (recordingState === "recording") {
       finishRecording();
       return;
@@ -387,12 +390,24 @@ export default function RecordPage() {
   }
 
   function handleRecordAgain() {
+    clearCountdownTimer();
+    clearRecordingTimer();
+    stopMicrophoneStream();
     clearRecordingPreview();
+    chunksRef.current = [];
+    recordingFailedRef.current = false;
     setSelectedAudio(null);
     setAudioDuration("");
+    setUploadError("");
     setRecordingError("");
     setRecordingState("idle");
+    setCountdown(3);
     setSecondsRemaining(60);
+    setIsDiscardDialogOpen(false);
+  }
+
+  function requestRecordAgain() {
+    setIsDiscardDialogOpen(true);
   }
 
   function handleAnalysis() {
@@ -489,9 +504,9 @@ export default function RecordPage() {
             {recordingState === "countdown" ? countdown : "3 · 2 · 1"}
           </p>
           <button
-            aria-label={recordingState === "recording" ? "Stop recording" : recordingState === "countdown" ? "Cancel recording countdown" : "Start recording"}
+            aria-label={recordingState === "recording" ? "Stop recording" : recordingState === "countdown" ? "Cancel recording countdown" : recordingState === "ready" ? "Recording complete. Discard it to record again." : "Start recording"}
             className={styles.microphone}
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || recordingState === "ready"}
             onClick={startRecording}
             type="button"
           >
@@ -520,7 +535,6 @@ export default function RecordPage() {
           {recordingPreviewUrl && recordingState === "ready" && (
             <div className={styles.recordingReady}>
               <audio controls src={recordingPreviewUrl}>Your browser does not support audio playback.</audio>
-              <button className="btn btn-ghost" onClick={handleRecordAgain} type="button">Record Again</button>
             </div>
           )}
         </div>
@@ -561,15 +575,39 @@ export default function RecordPage() {
 
       <nav className={styles.navigation} aria-label="Practice navigation">
         <Link className="btn btn-ghost" href="/context">Back</Link>
-        <button
-          className="btn btn-primary"
-          disabled={!selectedAudio || isAnalyzing || recordingState === "countdown" || recordingState === "recording"}
-          onClick={handleAnalysis}
-          type="button"
-        >
-          Continue to Analysis
-        </button>
+        <div className={styles.navigationActions}>
+          {recordingState === "ready" && (
+            <button className={`btn ${styles.discardButton}`} onClick={requestRecordAgain} type="button">🗑 Discard Recording</button>
+          )}
+          <button
+            className="btn btn-primary"
+            disabled={!selectedAudio || isAnalyzing || recordingState === "countdown" || recordingState === "recording"}
+            onClick={handleAnalysis}
+            type="button"
+          >
+            Continue to Analysis
+          </button>
+        </div>
       </nav>
+
+      {isDiscardDialogOpen && (
+        <div className={styles.dialogBackdrop} role="presentation">
+          <section
+            aria-describedby="discard-recording-description"
+            aria-labelledby="discard-recording-title"
+            aria-modal="true"
+            className={styles.dialog}
+            role="dialog"
+          >
+            <h2 id="discard-recording-title">Discard recording?</h2>
+            <p id="discard-recording-description">Your current recording will be permanently deleted.</p>
+            <div className={styles.dialogActions}>
+              <button className="btn btn-ghost" onClick={() => setIsDiscardDialogOpen(false)} type="button">Cancel</button>
+              <button className="btn btn-primary" onClick={handleRecordAgain} type="button">Discard</button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

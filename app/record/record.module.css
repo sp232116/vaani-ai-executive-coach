@@ -301,6 +301,47 @@
   width: 100%;
 }
 
+.dialogBackdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  background: rgb(10 22 40 / 0.55);
+}
+
+.dialog {
+  width: min(100%, 26rem);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--vaani-color-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.dialog h2,
+.dialog p {
+  margin: 0;
+}
+
+.dialog h2 {
+  color: var(--vaani-color-primary);
+  font-size: var(--font-size-xl);
+}
+
+.dialog p {
+  margin-top: var(--space-3);
+  color: var(--vaani-color-muted);
+  line-height: var(--line-height-relaxed);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
 .alternative {
   display: flex;
   flex-direction: column;
@@ -396,6 +437,31 @@
   justify-content: space-between;
   gap: var(--space-4);
   margin-top: var(--space-8);
+}
+
+.navigationActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.discardButton {
+  border-color: var(--vaani-color-border);
+  background: transparent;
+  color: var(--vaani-color-primary);
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.discardButton:hover:not(:disabled) {
+  border-color: var(--vaani-color-accent-hover);
+  background: var(--vaani-color-surface-subtle);
+  box-shadow: var(--shadow-sm);
+}
+
+.discardButton:focus-visible {
+  box-shadow: var(--shadow-focus);
 }
 
 @media (min-width: 48rem) {
