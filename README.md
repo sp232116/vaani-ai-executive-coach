@@ -1,36 +1,127 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# 🎙️ Vaani – AI Executive Communication Coach
 
-## Getting Started
+> **Practice before the real conversation.**
 
-First, run the development server:
+## Overview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Vaani is an AI-powered Executive Communication Coach that helps professionals prepare for high-stakes workplace conversations such as client pitches, promotion discussions, leadership updates, performance reviews, and difficult workplace conversations.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Unlike traditional communication tools that only evaluate how you speak, Vaani first understands the conversation context before analyzing your response. This enables it to deliver personalized, context-aware coaching instead of generic communication advice.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🚀 The Problem
 
-## Learn More
+Professionals often prepare for conversations that can significantly impact their careers.
 
-To learn more about Next.js, take a look at the following resources:
+Whether it's a client pitch, a promotion discussion, or a difficult workplace conversation, people usually practice alone or wait for feedback from a coach. This makes preparation slow, expensive, or unavailable when they need it the most.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Vaani bridges this gap by providing instant AI-powered executive communication coaching before the real conversation.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## ✨ Features
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Executive Moment Selection
+- Conversation Context Analysis
+- Record or Upload Audio
+- Review Recording Before Analysis
+- AI-Powered Executive Coaching
+- Executive Readiness Score
+- Strengths & Growth Opportunities
+- AI Response Rewrite
+- Personalized Practice Plan
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## ⚙️ How It Works
+
+1. Select the executive conversation.
+2. Provide the conversation context.
+3. Record or upload your response.
+4. Review your recording.
+5. Generate an AI-powered coaching report.
+6. Practice with personalized feedback before the real conversation.
+
+---
+
+## 🛠️ Tech Stack
+
+- Next.js
+- React
+- JavaScript
+- CSS Modules
+- Google Gemini API
+- OpenAI Codex (AI-assisted development)
+- Vercel
+
+---
+
+## 🌐 Live Demo
+
+**Application**
+
+https://vaani-ai-executive-coach.vercel.app
+
+---
+
+## 🎥 Demo Video
+
+https://youtu.be/Ktd-uIvYfYo
+
+---
+
+## 💡 Why Vaani?
+
+Most communication tools focus only on speech delivery.
+
+Vaani first understands what you're preparing for before evaluating your response.
+
+A client pitch, a promotion discussion, and a difficult workplace conversation all require different communication strategies. By understanding the situation first, Vaani delivers coaching that is personalized, relevant, and actionable.
+
+---
+
+## 🔮 Future Roadmap
+
+### Vaani 2.0
+
+- Video-Based Executive Presence Analysis
+- Eye Contact Detection
+- Body Language Analysis
+- Facial Expression Analysis
+- Voice Modulation Analysis
+
+### Vaani 3.0
+
+- AI Conversation Simulator
+- Client Pitch Practice
+- Promotion Discussion Simulation
+- Leadership Conversation Practice
+- Salary Negotiation Practice
+
+### Vaani 4.0
+
+- Personal Communication Coach
+- Communication Progress Tracking
+- Weekly Practice Challenges
+- Enterprise Team Dashboard
+
+---
+
+## 🌟 Inspiration
+
+While working with a communication coaching academy, I noticed that professionals often recorded themselves and waited for feedback before important conversations.
+
+That inspired me to build **Vaani**—an AI coach that helps professionals rehearse, improve, and build confidence before the real moment.
+
+---
+
+## 🏗️ Built For
+
+*NamasteDev AI Hackathon 2026*
+
+---
+
+## 👨‍💻 Developer
+
+**Saurabh Pandey**
