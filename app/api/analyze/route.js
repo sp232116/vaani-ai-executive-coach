@@ -1,4 +1,5 @@
 import { analyzeCommunication } from "@/services/ai";
+import { momentCriteria } from "@/lib/analysisSchema";
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,12 @@ const audioMimeTypes = {
   wav: "audio/wav",
   m4a: "audio/mp4",
   webm: "audio/webm",
+};
+const allowedMimeTypes = {
+  mp3: new Set(["audio/mpeg", "audio/mp3", "audio/x-mp3"]),
+  wav: new Set(["audio/wav", "audio/x-wav", "audio/vnd.wave", "audio/wave"]),
+  m4a: new Set(["audio/mp4", "audio/x-m4a", "audio/m4a"]),
+  webm: new Set(["audio/webm"]),
 };
 
 function getProviderError(error) {
@@ -35,6 +42,40 @@ function getProviderError(error) {
 function getFormValue(formData, name) {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
+}
+
+function isRequiredText(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function hasExpectedAudioSignature(audioBuffer, extension) {
+  if (extension === "mp3") {
+    return (
+      audioBuffer.subarray(0, 3).toString("ascii") === "ID3" ||
+      (audioBuffer.length >= 2 &&
+        audioBuffer[0] === 0xff &&
+        (audioBuffer[1] & 0xe0) === 0xe0)
+    );
+  }
+
+  if (extension === "wav") {
+    return (
+      audioBuffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+      audioBuffer.subarray(8, 12).toString("ascii") === "WAVE"
+    );
+  }
+
+  if (extension === "m4a") {
+    return audioBuffer.subarray(4, 8).toString("ascii") === "ftyp";
+  }
+
+  return (
+    audioBuffer.length >= 4 &&
+    audioBuffer[0] === 0x1a &&
+    audioBuffer[1] === 0x45 &&
+    audioBuffer[2] === 0xdf &&
+    audioBuffer[3] === 0xa3
+  );
 }
 
 function parseWorries(value) {
@@ -91,6 +132,41 @@ export async function POST(request) {
     );
   }
 
+  if (audio.size === 0) {
+    return Response.json(
+      { message: "Choose an audio file that contains a recording." },
+      { status: 400 },
+    );
+  }
+
+  const submittedMimeType =
+    typeof audio.type === "string" ? audio.type.split(";")[0].toLowerCase() : "";
+  if (submittedMimeType && !allowedMimeTypes[extension].has(submittedMimeType)) {
+    return Response.json(
+      { message: "The audio file type does not match its file format. Choose an MP3, WAV, M4A, or WebM audio file." },
+      { status: 415 },
+    );
+  }
+
+  const selectedExecutiveMoment = getFormValue(formData, "selected_executive_moment");
+  const conversationType = getFormValue(formData, "conversation_type");
+  const audience = getFormValue(formData, "audience");
+  const desiredOutcome = getFormValue(formData, "desired_outcome");
+
+  if (!Object.hasOwn(momentCriteria, selectedExecutiveMoment)) {
+    return Response.json(
+      { message: "Choose an executive moment before requesting coaching." },
+      { status: 400 },
+    );
+  }
+
+  if (!isRequiredText(conversationType) || !isRequiredText(audience) || !isRequiredText(desiredOutcome)) {
+    return Response.json(
+      { message: "Complete your conversation type, audience, and desired outcome before requesting coaching." },
+      { status: 400 },
+    );
+  }
+
   let worries;
 
   try {
@@ -102,7 +178,16 @@ export async function POST(request) {
     );
   }
 
-  const audioData = Buffer.from(await audio.arrayBuffer()).toString("base64");
+  const audioBuffer = Buffer.from(await audio.arrayBuffer());
+
+  if (!hasExpectedAudioSignature(audioBuffer, extension)) {
+    return Response.json(
+      { message: "This file does not appear to be a valid MP3, WAV, M4A, or WebM audio recording." },
+      { status: 415 },
+    );
+  }
+
+  const audioData = audioBuffer.toString("base64");
 
   try {
     const result = await analyzeCommunication({
@@ -111,10 +196,10 @@ export async function POST(request) {
         data: audioData,
       },
       context: {
-        selectedExecutiveMoment: getFormValue(formData, "selected_executive_moment"),
-        conversationType: getFormValue(formData, "conversation_type"),
-        audience: getFormValue(formData, "audience"),
-        desiredOutcome: getFormValue(formData, "desired_outcome"),
+        selectedExecutiveMoment,
+        conversationType,
+        audience,
+        desiredOutcome,
         worries,
       },
     });

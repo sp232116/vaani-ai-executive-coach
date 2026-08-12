@@ -123,6 +123,13 @@ export default function RecordPage() {
   const previewUrlRef = useRef("");
   const recordingFailedRef = useRef(false);
   const isMountedRef = useRef(true);
+  const recordingStartLockRef = useRef(false);
+  const analysisSubmissionLockRef = useRef(false);
+  const microphoneButtonRef = useRef(null);
+  const discardButtonRef = useRef(null);
+  const dialogRef = useRef(null);
+  const dialogCancelButtonRef = useRef(null);
+  const dialogReturnFocusRef = useRef(null);
   const router = useRouter();
 
   function clearCountdownTimer() {
@@ -178,6 +185,8 @@ export default function RecordPage() {
       if (mediaRecorderRef.current?.state === "recording") {
         mediaRecorderRef.current.stop();
       }
+      recordingStartLockRef.current = false;
+      analysisSubmissionLockRef.current = false;
       stopMicrophoneStream();
       if (previewUrlRef.current) {
         URL.revokeObjectURL(previewUrlRef.current);
@@ -213,6 +222,51 @@ export default function RecordPage() {
       URL.revokeObjectURL(audioUrl);
     };
   }, [selectedAudio]);
+
+  useEffect(() => {
+    if (!isDiscardDialogOpen) return undefined;
+
+    const focusableSelector = "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+    const microphoneButton = microphoneButtonRef.current;
+    const focusCancelButton = window.setTimeout(() => {
+      dialogCancelButtonRef.current?.focus();
+    }, 0);
+    const handleDialogKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsDiscardDialogOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusableElements = [...(dialogRef.current?.querySelectorAll(focusableSelector) || [])];
+      if (!focusableElements.length) return;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleDialogKeyDown);
+
+    return () => {
+      window.clearTimeout(focusCancelButton);
+      document.removeEventListener("keydown", handleDialogKeyDown);
+      if (dialogReturnFocusRef.current?.isConnected) {
+        dialogReturnFocusRef.current.focus();
+      } else {
+        microphoneButton?.focus();
+      }
+      dialogReturnFocusRef.current = null;
+    };
+  }, [isDiscardDialogOpen]);
 
   function handleAudioSelection(event) {
     const file = event.target.files?.[0];
@@ -259,6 +313,7 @@ export default function RecordPage() {
 
     if (!recordingFormat) {
       stopMicrophoneStream();
+      recordingStartLockRef.current = false;
       setRecordingState("error");
       setRecordingError("This browser cannot create a compatible audio recording. Upload an audio file instead.");
       return;
@@ -268,6 +323,7 @@ export default function RecordPage() {
       recorder = new MediaRecorder(stream, { mimeType: recordingFormat.mimeType });
     } catch {
       stopMicrophoneStream();
+      recordingStartLockRef.current = false;
       setRecordingState("error");
       setRecordingError("Your browser could not start an audio recording. Try uploading an audio file instead.");
       return;
@@ -281,6 +337,7 @@ export default function RecordPage() {
     };
     recorder.onerror = () => {
       recordingFailedRef.current = true;
+      recordingStartLockRef.current = false;
       clearRecordingTimer();
       stopMicrophoneStream();
       setRecordingState("error");
@@ -323,6 +380,7 @@ export default function RecordPage() {
     };
 
     recorder.start();
+    recordingStartLockRef.current = false;
     setSecondsRemaining(60);
     setRecordingState("recording");
     let remaining = 60;
@@ -345,15 +403,20 @@ export default function RecordPage() {
     if (recordingState === "countdown") {
       clearCountdownTimer();
       stopMicrophoneStream();
+      recordingStartLockRef.current = false;
       setRecordingState("idle");
       return;
     }
+
+    if (recordingStartLockRef.current) return;
 
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setRecordingState("error");
       setRecordingError("Recording is not supported in this browser. Upload an audio file instead.");
       return;
     }
+
+    recordingStartLockRef.current = true;
 
     clearRecordingPreview();
     setSelectedAudio(null);
@@ -363,6 +426,11 @@ export default function RecordPage() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        recordingStartLockRef.current = false;
+        return;
+      }
       streamRef.current = stream;
       setCountdown(3);
       setRecordingState("countdown");
@@ -379,6 +447,7 @@ export default function RecordPage() {
         beginRecording(stream);
       }, 1000);
     } catch (error) {
+      recordingStartLockRef.current = false;
       const isDenied = error instanceof DOMException && error.name === "NotAllowedError";
       setRecordingState("error");
       setRecordingError(
@@ -396,6 +465,7 @@ export default function RecordPage() {
     clearRecordingPreview();
     chunksRef.current = [];
     recordingFailedRef.current = false;
+    recordingStartLockRef.current = false;
     setSelectedAudio(null);
     setAudioDuration("");
     setUploadError("");
@@ -407,14 +477,16 @@ export default function RecordPage() {
   }
 
   function requestRecordAgain() {
+    dialogReturnFocusRef.current = discardButtonRef.current || document.activeElement;
     setIsDiscardDialogOpen(true);
   }
 
   function handleAnalysis() {
-    if (!selectedAudio || isAnalyzing) return;
+    if (!selectedAudio || isAnalyzing || analysisSubmissionLockRef.current) return;
 
+    analysisSubmissionLockRef.current = true;
     setIsAnalyzing(true);
-    startAnalysisRequest({
+    const analysisRequest = startAnalysisRequest({
       audio: selectedAudio,
       context: {
         selectedMoment,
@@ -424,6 +496,14 @@ export default function RecordPage() {
         worries: context.worries,
       },
     });
+    analysisRequest.then(
+      () => {
+        analysisSubmissionLockRef.current = false;
+      },
+      () => {
+        analysisSubmissionLockRef.current = false;
+      },
+    );
     router.push("/analyzing");
   }
 
@@ -508,6 +588,7 @@ export default function RecordPage() {
             className={styles.microphone}
             disabled={isAnalyzing || recordingState === "ready"}
             onClick={startRecording}
+            ref={microphoneButtonRef}
             type="button"
           >
             <MicrophoneIcon />
@@ -577,7 +658,7 @@ export default function RecordPage() {
         <Link className="btn btn-ghost" href="/context">Back</Link>
         <div className={styles.navigationActions}>
           {recordingState === "ready" && (
-            <button className={`btn ${styles.discardButton}`} onClick={requestRecordAgain} type="button">🗑 Discard Recording</button>
+            <button className={`btn ${styles.discardButton}`} onClick={requestRecordAgain} ref={discardButtonRef} type="button">🗑 Discard Recording</button>
           )}
           <button
             className="btn btn-primary"
@@ -597,12 +678,13 @@ export default function RecordPage() {
             aria-labelledby="discard-recording-title"
             aria-modal="true"
             className={styles.dialog}
+            ref={dialogRef}
             role="dialog"
           >
             <h2 id="discard-recording-title">Discard recording?</h2>
             <p id="discard-recording-description">Your current recording will be permanently deleted.</p>
             <div className={styles.dialogActions}>
-              <button className="btn btn-ghost" onClick={() => setIsDiscardDialogOpen(false)} type="button">Cancel</button>
+              <button className="btn btn-ghost" onClick={() => setIsDiscardDialogOpen(false)} ref={dialogCancelButtonRef} type="button">Cancel</button>
               <button className="btn btn-primary" onClick={handleRecordAgain} type="button">Discard</button>
             </div>
           </section>
